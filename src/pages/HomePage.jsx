@@ -6,7 +6,8 @@ import {
   getExpressionsForReview, 
   markExpressionMastered 
 } from "../api/expressionsApi";
-import { Box, Typography, Paper } from "@mui/material"; // Material-UIコンポーネントを追加
+import { Box, Typography, Paper, Button } from "@mui/material"; // Material-UIコンポーネントを追加
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Firestoreに保存された有用表現(expressions)を一覧表示するページ
@@ -17,6 +18,7 @@ const HomePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null); // エラー状態を追加
   const [expressionsForReview, setExpressionsForReview] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadData();
@@ -141,6 +143,14 @@ const HomePage = () => {
     );
   };
 
+  const startReviewSession = () => {
+    navigate('/review', { 
+      state: { 
+        expressionsToReview: expressionsForReview 
+      } 
+    });
+  };
+
   return (
     <Box sx={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       <Typography 
@@ -171,6 +181,14 @@ const HomePage = () => {
         }}
         {...tableCustomStyles}
       />
+
+      <Button
+        variant="contained"
+        onClick={startReviewSession}
+        disabled={expressionsForReview.length === 0}
+      >
+        復習を開始
+      </Button>
     </Box>
   );
 };
