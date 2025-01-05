@@ -50,6 +50,10 @@ export const updateExpressionProgress = async (expressionId, progressData) => {
 export const getExpressionsForReview = async () => {
   try {
     const response = await fetch('/api/expressions/review');
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch expressions for review: ${errorText}`);
+    }
     return await response.json();
   } catch (error) {
     console.error('Error fetching expressions for review:', error);
@@ -65,6 +69,30 @@ export const markExpressionMastered = async (expressionId) => {
     return await response.json();
   } catch (error) {
     console.error('Error marking expression as mastered:', error);
+    throw error;
+  }
+};
+
+export const evaluateReviewSession = async (messages, expressions) => {
+  try {
+    const response = await fetch('/api/review/evaluate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: messages,
+        expressions: expressions
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to evaluate review session');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error evaluating review session:', error);
     throw error;
   }
 };

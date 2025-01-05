@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Paper, Button, CircularProgress } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { evaluateReviewSession } from '../api/reviewApi';
+import { evaluateReviewSession, updateExpressionProgress } from '../api/expressionsApi';
 
 const ReviewPage = () => {
   const location = useLocation();
@@ -185,34 +185,48 @@ const ReviewPage = () => {
     stopConnection();
     
     try {
-      const evaluation = await evaluateReviewSession(messages, expressionsToReview);
-      
-      setFeedback(
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>復習セッション結果</Typography>
-          {Object.entries(evaluation).map(([exprId, result]) => (
-            <Paper key={exprId} sx={{ p: 2, mb: 1, bgcolor: result.success ? '#e8f5e9' : '#ffebee' }}>
-              <Typography>
-                {expressionsToReview.find(e => e.id === exprId)?.expression}:
-                {result.success ? ' ✅ 成功' : ' ❌ 要復習'}
-              </Typography>
-              {result.usage_context && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  使用例: {result.usage_context}
-                </Typography>
-              )}
-              {result.feedback && (
-                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                  フィードバック: {result.feedback}
-                </Typography>
-              )}
-            </Paper>
-          ))}
-        </Box>
-      );
-      setIsSessionComplete(true);
+        // 会話内容を評価
+        const evaluation = await evaluateReviewSession(messages, expressionsToReview);
+        
+        // 成功した表現の進捗を更新
+        for (const [exprId, result] of Object.entries(evaluation)) {
+            if (result.success) {
+                try {
+                    await updateExpressionProgress(exprId);
+                    console.log(`Updated progress for expression ${exprId}`);
+                } catch (error) {
+                    console.error(`Failed to update progress for expression ${exprId}:`, error);
+                }
+            }
+        }
+        
+        // フィードバックの表示
+        setFeedback(
+            <Box sx={{ mt: 3 }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>復習セッション結果</Typography>
+                {Object.entries(evaluation).map(([exprId, result]) => (
+                    <Paper key={exprId} sx={{ p: 2, mb: 1, bgcolor: result.success ? '#e8f5e9' : '#ffebee' }}>
+                        <Typography>
+                            {expressionsToReview.find(e => e.id === exprId)?.expression}:
+                            {result.success ? ' ✅ 成功' : ' ❌ 要復習'}
+                        </Typography>
+                        {result.usage_context && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                                使用例: {result.usage_context}
+                            </Typography>
+                        )}
+                        {result.feedback && (
+                            <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                                フィードバック: {result.feedback}
+                            </Typography>
+                        )}
+                    </Paper>
+                ))}
+            </Box>
+        );
+        setIsSessionComplete(true);
     } catch (error) {
-      setError('Failed to evaluate session: ' + error.message);
+        setError('Failed to evaluate session: ' + error.message);
     }
   };
 

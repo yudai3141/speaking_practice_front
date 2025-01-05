@@ -1,17 +1,29 @@
 // frontend/src/api/conversationApi.js
 export const finalizeConversation = async (payload) => {
-  const response = await fetch("/api/conversation/finalize", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await fetch("/api/conversation/finalize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || "Failed to finalize conversation.");
+    const contentType = response.headers.get("content-type");
+    if (!response.ok) {
+      const errorData = contentType?.includes("application/json") 
+        ? await response.json() 
+        : await response.text();
+      throw new Error(
+        typeof errorData === "string" 
+          ? errorData 
+          : errorData.error || "Failed to finalize conversation"
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error in finalizeConversation:", error);
+    throw error;
   }
-
-  return response.json();
 };
