@@ -96,3 +96,24 @@ export const evaluateReviewSession = async (messages, expressions) => {
     throw error;
   }
 };
+
+export const saveSelectedExpressions = async (expressions) => {
+  try {
+    const response = await fetch('/api/expressions/save-selected', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(expressions)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save selected expressions');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error saving selected expressions:', error);
+    throw error;
+  }
+};

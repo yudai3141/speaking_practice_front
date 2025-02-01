@@ -1,6 +1,22 @@
 // frontend/src/pages/TalkPageWebRTC.jsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { finalizeConversation } from "../api/conversationApi"; // API呼び出し関数をインポート
+import { saveSelectedExpressions } from "../api/expressionsApi";  // 追加
+import { 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions,
+  Checkbox,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Button,
+  Typography,
+  FormControlLabel,
+  Box
+} from '@mui/material';
 
 /**
  * このコンポーネントで:
@@ -24,6 +40,10 @@ const TalkPageWebRTC = () => {
   const [partialText, setPartialText] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false); // 接続中状態の追加
+  const [extractedExpressions, setExtractedExpressions] = useState([]);
+  const [selectedExpressions, setSelectedExpressions] = useState([]);
+  const [showExpressionDialog, setShowExpressionDialog] = useState(false);
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     // コンポーネントのアンマウント時に接続をクローズ
@@ -118,8 +138,8 @@ const TalkPageWebRTC = () => {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const baseUrl = "https://api.openai.com/v1/realtime"; // 確認が必要
-      const model = "gpt-4o-realtime-preview-2024-12-17"; // ユーザー指示通り
+      const baseUrl = "https://api.openai.com/v1/realtime";
+      const model = "gpt-4o-mini-realtime-preview-2024-12-17";
       const sdpResp = await fetch(`${baseUrl}?model=${model}`, {
         method: "POST",
         body: offer.sdp,
@@ -263,25 +283,160 @@ const TalkPageWebRTC = () => {
     const userId = "demoUser";
     const payload = {
       user_id: userId,
-      messages: messages, // 例: [{ role: "assistant", text: "..." }, ...]
+      messages: messages,
     };
-    console.log("Finalizing conversation with payload:", payload); // デバッグ用
-    try {
-      const res = await finalizeConversation(payload);
-      console.log("Conversation saved:", res);
-      alert(
-        `会話ログを保存しました。\n` +
-          `抽出された表現数: ${res.extracted_count}\n` +
-          `会話DocID: ${res.doc_id}`
-      );
 
-      // WebRTC接続を終了する処理を追加
-      stopConnection();
+    try {
+      // 会話を保存し、表現を抽出
+      const res = await finalizeConversation(payload);
+      console.log("Extracted expressions:", res.extracted_expressions);
+      
+      // 抽出された表現を状態に保存
+      setExtractedExpressions(res.extracted_expressions);
+      // デフォルトでは何も選択されていない状態にする
+      setSelectedExpressions([]);
+      setShowExpressionDialog(true);
+
     } catch (err) {
       console.error("Failed to finalize conversation:", err);
       alert("会話保存に失敗しました。");
     }
+
+    // WebRTC接続を終了
+    stopConnection();
   };
+
+  // 選択された表現を保存する関数
+  const handleSaveSelectedExpressions = async () => {
+    try {
+      // 選択された表現のみをフィルタリング
+      const expressionsToSave = extractedExpressions
+        .filter(expr => selectedExpressions.includes(expr.id))
+        .map(({ id, ...expr }) => expr);  // 一時的なIDを削除
+      
+      console.log("Expressions to save:", expressionsToSave);
+
+      // 選択された表現のみを保存
+      const response = await saveSelectedExpressions(expressionsToSave);
+      
+      alert(`選択された表現（${expressionsToSave.length}個）を保存しました。`);
+      setShowExpressionDialog(false);
+      
+    } catch (error) {
+      console.error("Failed to save selected expressions:", error);
+      alert("表現の保存に失敗しました。");
+    }
+  };
+
+  // 全選択/全解除の処理
+  const handleSelectAll = (checked) => {
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedExpressions(extractedExpressions.map(expr => expr.id));
+    } else {
+      setSelectedExpressions([]);
+    }
+  };
+
+  // 表現選択ダイアログのコンポーネント
+  const ExpressionSelectionDialog = () => (
+    <Dialog 
+      open={showExpressionDialog} 
+      onClose={() => setShowExpressionDialog(false)}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle>
+        抽出された表現を確認
+        <Typography variant="subtitle1" color="textSecondary">
+          保存したい表現を選択してください
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        {/* 全選択チェックボックス */}
+        <Box sx={{ p: 2, borderBottom: '1px solid #eee' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={selectAll}
+                onChange={(e) => handleSelectAll(e.target.checked)}
+              />
+            }
+            label="全て選択/解除"
+          />
+        </Box>
+        <List>
+          {extractedExpressions.map((expr) => (
+            <ListItem 
+              key={expr.id} 
+              divider
+              style={{
+                backgroundColor: selectedExpressions.includes(expr.id) 
+                  ? '#e3f2fd' 
+                  : 'transparent'
+              }}
+            >
+              <ListItemText
+                primary={
+                  <Typography variant="subtitle1">
+                    {expr.expression}
+                  </Typography>
+                }
+                secondary={
+                  <>
+                    <Typography component="span" variant="body2">
+                      意味: {expr.meaning}
+                    </Typography>
+                    <br />
+                    <Typography component="span" variant="body2">
+                      例文: {expr.example}
+                    </Typography>
+                  </>
+                }
+              />
+              <ListItemSecondaryAction>
+                <Checkbox
+                  edge="end"
+                  checked={selectedExpressions.includes(expr.id)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setSelectedExpressions(prev => {
+                      const newSelection = checked
+                        ? [...prev, expr.id]
+                        : prev.filter(id => id !== expr.id);
+                      // 全選択状態の更新
+                      setSelectAll(newSelection.length === extractedExpressions.length);
+                      return newSelection;
+                    });
+                  }}
+                />
+              </ListItemSecondaryAction>
+            </ListItem>
+          ))}
+        </List>
+      </DialogContent>
+      <DialogActions>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', px: 2 }}>
+          <Typography color="textSecondary">
+            {selectedExpressions.length} / {extractedExpressions.length} 個選択中
+          </Typography>
+          <Box>
+            <Button onClick={() => setShowExpressionDialog(false)}>
+              キャンセル
+            </Button>
+            <Button 
+              onClick={handleSaveSelectedExpressions} 
+              variant="contained" 
+              color="primary"
+              disabled={selectedExpressions.length === 0}
+            >
+              選択した表現を保存
+            </Button>
+          </Box>
+        </Box>
+      </DialogActions>
+    </Dialog>
+  );
 
   return (
     <div style={{ padding: 20 }}>
@@ -327,6 +482,9 @@ const TalkPageWebRTC = () => {
 
       {/* Audio要素のコンテナ */}
       <div id="audio-container" style={{ display: "none" }}></div>
+
+      {/* 表現選択ダイアログを追加 */}
+      <ExpressionSelectionDialog />
     </div>
   );
 };
