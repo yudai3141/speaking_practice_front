@@ -1,6 +1,8 @@
 // frontend/src/pages/TalkPageWebRTC.jsx
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { finalizeConversation } from "../api/conversationApi"; // API呼び出し関数をインポート
+
+import { API_BASE_URL } from "../api/config";
 
 /**
  * このコンポーネントで:
@@ -38,9 +40,13 @@ const TalkPageWebRTC = () => {
     setIsConnecting(true);
     try {
       // 1) ephemeral keyをバックエンド(/session)から取得
-      const resp = await fetch("/session");
+      const resp = await fetch(`${API_BASE_URL}/session`);
       if (!resp.ok) {
-        console.error("Failed to fetch /session:", resp.status, resp.statusText);
+        console.error(
+          "Failed to fetch /session:",
+          resp.status,
+          resp.statusText
+        );
         alert("セッションの取得に失敗しました。");
         setIsConnecting(false);
         return;
@@ -130,7 +136,11 @@ const TalkPageWebRTC = () => {
       });
 
       if (!sdpResp.ok) {
-        console.error("Failed to fetch SDP answer:", sdpResp.status, sdpResp.statusText);
+        console.error(
+          "Failed to fetch SDP answer:",
+          sdpResp.status,
+          sdpResp.statusText
+        );
         alert("SDPの取得に失敗しました。");
         setIsConnecting(false);
         return;
@@ -167,8 +177,12 @@ const TalkPageWebRTC = () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.srcObject = null;
-      if (document.getElementById("audio-container").contains(audioRef.current)) {
-        document.getElementById("audio-container").removeChild(audioRef.current);
+      if (
+        document.getElementById("audio-container").contains(audioRef.current)
+      ) {
+        document
+          .getElementById("audio-container")
+          .removeChild(audioRef.current);
       }
       audioRef.current = null;
       console.log("Audio element removed.");
@@ -200,7 +214,10 @@ const TalkPageWebRTC = () => {
       // 例: partial transcript が終了したら確定メッセージに追加
       else if (evt.type === "response.audio_transcript.done") {
         if (partialText.trim()) {
-          setMessages((prev) => [...prev, { role: "assistant", text: partialText }]);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: partialText },
+          ]);
         }
         setPartialText("");
       }
@@ -223,7 +240,10 @@ const TalkPageWebRTC = () => {
               .join("\n");
 
             if (assistantMessages.trim()) {
-              setMessages((prev) => [...prev, { role: "assistant", text: assistantMessages }]);
+              setMessages((prev) => [
+                ...prev,
+                { role: "assistant", text: assistantMessages },
+              ]);
             }
           }
         } else {
@@ -234,16 +254,25 @@ const TalkPageWebRTC = () => {
       else if (evt.type === "conversation.item.created") {
         const item = evt.item;
         if (item && item.text) {
-          setMessages((prev) => [...prev, { role: "assistant", text: item.text }]);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: item.text },
+          ]);
         }
       }
       // response.created イベントの処理
       else if (evt.type === "response.created") {
         const response = evt.response;
         if (response && response.message) {
-          setMessages((prev) => [...prev, { role: "assistant", text: response.message }]);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: response.message },
+          ]);
         } else if (response && response.content) {
-          setMessages((prev) => [...prev, { role: "assistant", text: response.content }]);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: response.content },
+          ]);
         } else {
           console.warn("Unknown structure in response.created event:", evt);
         }
@@ -303,12 +332,17 @@ const TalkPageWebRTC = () => {
         )}
       </div>
 
-      <div style={{ border: "1px solid #ccc", padding: 10, height: 200, overflow: "auto" }}>
+      <div
+        style={{
+          border: "1px solid #ccc",
+          padding: 10,
+          height: 200,
+          overflow: "auto",
+        }}
+      >
         {/* 現在生成中のテキスト(assistant視点) */}
         {partialText && (
-          <p style={{ color: "gray" }}>
-            assistant(draft): {partialText}
-          </p>
+          <p style={{ color: "gray" }}>assistant(draft): {partialText}</p>
         )}
         {/* 確定したメッセージ */}
         {messages.map((m, idx) => (

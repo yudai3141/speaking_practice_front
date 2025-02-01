@@ -1,13 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Box, Typography, Paper, Button, CircularProgress } from '@mui/material';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { evaluateReviewSession, updateExpressionProgress } from '../api/expressionsApi';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Paper,
+  Typography,
+} from "@mui/material";
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  evaluateReviewSession,
+  updateExpressionProgress,
+} from "../api/expressionsApi";
+
+import { API_BASE_URL } from "../api/config";
 
 const ReviewPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { expressionsToReview } = location.state || { expressionsToReview: [] };
-  
+
   const pcRef = useRef(null);
   const dataChannelRef = useRef(null);
   const audioRef = useRef(null);
@@ -25,7 +36,7 @@ const ReviewPage = () => {
 
   useEffect(() => {
     if (!expressionsToReview.length) {
-      navigate('/');
+      navigate("/");
       return;
     }
 
@@ -37,12 +48,12 @@ const ReviewPage = () => {
   const startConnection = async () => {
     setIsConnecting(true);
     try {
-      const resp = await fetch("/session/review", {
-        method: 'POST',
+      const resp = await fetch(`${API_BASE_URL}/session/review`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(expressionsToReview)
+        body: JSON.stringify(expressionsToReview),
       });
 
       if (!resp.ok) {
@@ -106,7 +117,6 @@ const ReviewPage = () => {
 
       const answerSdp = await sdpResp.text();
       await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-
     } catch (err) {
       console.error("startConnection error:", err);
       setError("接続の初期化中にエラーが発生しました。");
@@ -132,8 +142,12 @@ const ReviewPage = () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.srcObject = null;
-      if (document.getElementById("audio-container").contains(audioRef.current)) {
-        document.getElementById("audio-container").removeChild(audioRef.current);
+      if (
+        document.getElementById("audio-container").contains(audioRef.current)
+      ) {
+        document
+          .getElementById("audio-container")
+          .removeChild(audioRef.current);
       }
       audioRef.current = null;
     }
@@ -152,14 +166,15 @@ const ReviewPage = () => {
 
     if (evt.type === "response.audio_transcript.delta") {
       setPartialText((prev) => prev + evt.delta);
-    }
-    else if (evt.type === "response.audio_transcript.done") {
+    } else if (evt.type === "response.audio_transcript.done") {
       if (partialText.trim()) {
-        setMessages((prev) => [...prev, { role: "assistant", text: partialText }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: partialText },
+        ]);
       }
       setPartialText("");
-    }
-    else if (evt.type === "response.done") {
+    } else if (evt.type === "response.done") {
       if (evt.response && Array.isArray(evt.response.output)) {
         const responseId = evt.response.id;
         if (!processedResponses.current.has(responseId)) {
@@ -174,7 +189,10 @@ const ReviewPage = () => {
             .join("\n");
 
           if (assistantMessages.trim()) {
-            setMessages((prev) => [...prev, { role: "assistant", text: assistantMessages }]);
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", text: assistantMessages },
+            ]);
           }
         }
       }
@@ -183,50 +201,69 @@ const ReviewPage = () => {
 
   const handleEndSession = async () => {
     stopConnection();
-    
+
     try {
-        // 会話内容を評価
-        const evaluation = await evaluateReviewSession(messages, expressionsToReview);
-        
-        // 成功した表現の進捗を更新
-        for (const [exprId, result] of Object.entries(evaluation)) {
-            if (result.success) {
-                try {
-                    await updateExpressionProgress(exprId);
-                    console.log(`Updated progress for expression ${exprId}`);
-                } catch (error) {
-                    console.error(`Failed to update progress for expression ${exprId}:`, error);
-                }
-            }
+      // 会話内容を評価
+      const evaluation = await evaluateReviewSession(
+        messages,
+        expressionsToReview
+      );
+
+      // 成功した表現の進捗を更新
+      for (const [exprId, result] of Object.entries(evaluation)) {
+        if (result.success) {
+          try {
+            await updateExpressionProgress(exprId);
+            console.log(`Updated progress for expression ${exprId}`);
+          } catch (error) {
+            console.error(
+              `Failed to update progress for expression ${exprId}:`,
+              error
+            );
+          }
         }
-        
-        // フィードバックの表示
-        setFeedback(
-            <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>復習セッション結果</Typography>
-                {Object.entries(evaluation).map(([exprId, result]) => (
-                    <Paper key={exprId} sx={{ p: 2, mb: 1, bgcolor: result.success ? '#e8f5e9' : '#ffebee' }}>
-                        <Typography>
-                            {expressionsToReview.find(e => e.id === exprId)?.expression}:
-                            {result.success ? ' ✅ 成功' : ' ❌ 要復習'}
-                        </Typography>
-                        {result.usage_context && (
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                                使用例: {result.usage_context}
-                            </Typography>
-                        )}
-                        {result.feedback && (
-                            <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                                フィードバック: {result.feedback}
-                            </Typography>
-                        )}
-                    </Paper>
-                ))}
-            </Box>
-        );
-        setIsSessionComplete(true);
+      }
+
+      // フィードバックの表示
+      setFeedback(
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            復習セッション結果
+          </Typography>
+          {Object.entries(evaluation).map(([exprId, result]) => (
+            <Paper
+              key={exprId}
+              sx={{
+                p: 2,
+                mb: 1,
+                bgcolor: result.success ? "#e8f5e9" : "#ffebee",
+              }}
+            >
+              <Typography>
+                {expressionsToReview.find((e) => e.id === exprId)?.expression}:
+                {result.success ? " ✅ 成功" : " ❌ 要復習"}
+              </Typography>
+              {result.usage_context && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  使用例: {result.usage_context}
+                </Typography>
+              )}
+              {result.feedback && (
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  sx={{ mt: 1 }}
+                >
+                  フィードバック: {result.feedback}
+                </Typography>
+              )}
+            </Paper>
+          ))}
+        </Box>
+      );
+      setIsSessionComplete(true);
     } catch (error) {
-        setError('Failed to evaluate session: ' + error.message);
+      setError("Failed to evaluate session: " + error.message);
     }
   };
 
@@ -259,14 +296,16 @@ const ReviewPage = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>復習セッション</Typography>
-      
-      <Paper sx={{ p: 2, mb: 3, bgcolor: '#e3f2fd' }}>
+    <Box sx={{ maxWidth: 800, mx: "auto", p: 3 }}>
+      <Typography variant="h4" sx={{ mb: 3 }}>
+        復習セッション
+      </Typography>
+
+      <Paper sx={{ p: 2, mb: 3, bgcolor: "#e3f2fd" }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           練習する表現:
         </Typography>
-        {expressionsToReview.map(expr => (
+        {expressionsToReview.map((expr) => (
           <Box key={expr.id} sx={{ mb: 1 }}>
             <Typography variant="subtitle1">{expr.expression}</Typography>
             <Typography variant="body2" color="textSecondary">
@@ -276,28 +315,28 @@ const ReviewPage = () => {
         ))}
       </Paper>
 
-      <Paper sx={{ p: 2, mb: 3, maxHeight: 400, overflow: 'auto' }}>
+      <Paper sx={{ p: 2, mb: 3, maxHeight: 400, overflow: "auto" }}>
         {messages.map((msg, index) => (
-          <Box 
+          <Box
             key={index}
-            sx={{ 
+            sx={{
               mb: 2,
-              textAlign: msg.role === 'user' ? 'right' : 'left',
-              color: msg.role === 'user' ? 'primary.main' : 'text.primary'
+              textAlign: msg.role === "user" ? "right" : "left",
+              color: msg.role === "user" ? "primary.main" : "text.primary",
             }}
           >
             <Typography>{msg.text}</Typography>
           </Box>
         ))}
         {partialText && (
-          <Box sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+          <Box sx={{ color: "text.secondary", fontStyle: "italic" }}>
             {partialText}
           </Box>
         )}
       </Paper>
 
       {!isSessionComplete ? (
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+        <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
           {!isConnected && !isConnecting ? (
             <Button
               variant="contained"
@@ -314,7 +353,7 @@ const ReviewPage = () => {
                 onClick={isRecording ? stopRecording : startRecording}
                 disabled={!isConnected}
               >
-                {isRecording ? '録音停止' : '録音開始'}
+                {isRecording ? "録音停止" : "録音開始"}
               </Button>
               <Button
                 variant="outlined"
@@ -329,7 +368,7 @@ const ReviewPage = () => {
       ) : (
         <Button
           variant="contained"
-          onClick={() => navigate('/')}
+          onClick={() => navigate("/")}
           sx={{ mt: 2 }}
         >
           ホームに戻る
@@ -339,7 +378,7 @@ const ReviewPage = () => {
       {feedback}
 
       {isConnecting && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
           <CircularProgress />
         </Box>
       )}
@@ -348,4 +387,4 @@ const ReviewPage = () => {
   );
 };
 
-export default ReviewPage; 
+export default ReviewPage;

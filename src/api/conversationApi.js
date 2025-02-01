@@ -1,7 +1,9 @@
+import { API_BASE_URL } from "./config";
+
 // frontend/src/api/conversationApi.js
 export const finalizeConversation = async (payload) => {
   try {
-    const response = await fetch("/api/conversation/finalize", {
+    const response = await fetch(`${API_BASE_URL}/api/conversation/finalize`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -11,12 +13,12 @@ export const finalizeConversation = async (payload) => {
 
     const contentType = response.headers.get("content-type");
     if (!response.ok) {
-      const errorData = contentType?.includes("application/json") 
-        ? await response.json() 
+      const errorData = contentType?.includes("application/json")
+        ? await response.json()
         : await response.text();
       throw new Error(
-        typeof errorData === "string" 
-          ? errorData 
+        typeof errorData === "string"
+          ? errorData
           : errorData.error || "Failed to finalize conversation"
       );
     }
