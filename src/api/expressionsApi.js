@@ -1,9 +1,13 @@
+import { API_BASE_URL } from "./config";
+
 // frontend/src/api/expressionsApi.js
 export async function fetchExpressions() {
   try {
-    const res = await fetch("/api/expressions");
+    const res = await fetch(`${API_BASE_URL}/api/expressions`);
     if (!res.ok) {
-      throw new Error(`Failed to fetch expressions: ${res.status} ${res.statusText}`);
+      throw new Error(
+        `Failed to fetch expressions: ${res.status} ${res.statusText}`
+      );
     }
     const data = await res.json();
     return data;
@@ -15,13 +19,15 @@ export async function fetchExpressions() {
 
 export async function createExpression(data) {
   try {
-    const res = await fetch("/api/expressions", {
+    const res = await fetch(`${API_BASE_URL}/api/expressions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     if (!res.ok) {
-      throw new Error(`Failed to create expression: ${res.status} ${res.statusText}`);
+      throw new Error(
+        `Failed to create expression: ${res.status} ${res.statusText}`
+      );
     }
     const createdData = await res.json();
     return createdData;
@@ -33,66 +39,72 @@ export async function createExpression(data) {
 
 export const updateExpressionProgress = async (expressionId, progressData) => {
   try {
-    const response = await fetch(`/api/expressions/${expressionId}/review`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(progressData)
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/expressions/${expressionId}/review`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(progressData),
+      }
+    );
     return await response.json();
   } catch (error) {
-    console.error('Error updating expression progress:', error);
+    console.error("Error updating expression progress:", error);
     throw error;
   }
 };
 
 export const getExpressionsForReview = async () => {
   try {
-    const response = await fetch('/api/expressions/review');
+    const response = await fetch(`${API_BASE_URL}/api/expressions/review`);
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Failed to fetch expressions for review: ${errorText}`);
     }
     return await response.json();
   } catch (error) {
-    console.error('Error fetching expressions for review:', error);
+    console.error("Error fetching expressions for review:", error);
     throw error;
   }
 };
 
 export const markExpressionMastered = async (expressionId) => {
   try {
-    const response = await fetch(`/api/expressions/${expressionId}/master`, {
-      method: 'POST',
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/expressions/${expressionId}/master`,
+      {
+        method: "POST",
+      }
+    );
     return await response.json();
   } catch (error) {
-    console.error('Error marking expression as mastered:', error);
+    console.error("Error marking expression as mastered:", error);
     throw error;
   }
 };
 
 export const evaluateReviewSession = async (messages, expressions) => {
   try {
-    const response = await fetch('/api/review/evaluate', {
-      method: 'POST',
+    const response = await fetch(`${API_BASE_URL}/api/review/evaluate`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         messages: messages,
-        expressions: expressions
-      })
+        expressions: expressions,
+      }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to evaluate review session');
+      throw new Error("Failed to evaluate review session");
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error evaluating review session:', error);
+    console.error("Error evaluating review session:", error);
     throw error;
   }
 };
