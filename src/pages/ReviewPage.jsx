@@ -262,7 +262,12 @@ const ReviewPage = () => {
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
       <Typography variant="h4" sx={{ mb: 3 }}>復習セッション</Typography>
       
-      <Paper sx={{ p: 2, mb: 3, bgcolor: '#e3f2fd' }}>
+      <Paper sx={{ 
+        p: 3, 
+        mb: 3, 
+        bgcolor: 'rgba(0, 20, 0, 0.95)',  // 白背景から暗めの緑に
+        color: '#00ff00',  // テキストを緑に
+      }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           練習する表現:
         </Typography>
