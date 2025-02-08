@@ -114,8 +114,8 @@ function SimpleAvatar({ isSpeaking }) {
   const timeRef = useRef(0);
   const waveRefs = useRef([]);
   const circuitRefs = useRef([]);
-  const isAnimatingRef = useRef(false);  // アニメーション状態を追跡
-  const animationEndTimeRef = useRef(0);  // アニメーション終了時間を追跡
+  const isAnimatingRef = useRef(false);
+  const animationEndTimeRef = useRef(0);
 
   // 瞬きアニメーション
   useEffect(() => {
@@ -125,31 +125,29 @@ function SimpleAvatar({ isSpeaking }) {
     return () => clearInterval(blinkInterval);
   }, []);
 
-  // isSpeakingの変更を監視
+  // isSpeakingの変更を監視して、アニメーション状態を更新
   useEffect(() => {
     if (isSpeaking) {
+      console.log('Animation started');
       isAnimatingRef.current = true;
+      animationEndTimeRef.current = 0;
     } else {
-      // 話し終わってから1秒後にアニメーションを停止
-      animationEndTimeRef.current = timeRef.current + 1;
+      console.log('Animation ending');
+      // 即座にアニメーションを停止
+      isAnimatingRef.current = false;
+      animationEndTimeRef.current = timeRef.current;
     }
   }, [isSpeaking]);
 
-  // 継続的なアニメーションの更新
+  // アニメーションの更新
   useFrame((state, delta) => {
     timeRef.current += delta;
 
-    // アニメーション終了判定
-    if (!isSpeaking && timeRef.current > animationEndTimeRef.current) {
-      isAnimatingRef.current = false;
-    }
-
-    // 波形アニメーション
+    // 波形アニメーション（口の動き）
     waveRefs.current.forEach((mesh, index) => {
       if (!mesh) return;
 
-      if (isAnimatingRef.current) {
-        // より複雑な波形パターン
+      if (isSpeaking) {  // isAnimatingRef.currentの条件を削除
         const baseFreq = timeRef.current * 8;
         const height = 0.1 + 
           Math.sin(baseFreq + index * 0.5) * 0.15 +
@@ -158,7 +156,7 @@ function SimpleAvatar({ isSpeaking }) {
         
         mesh.scale.y = Math.max(0.05, height);
       } else {
-        mesh.scale.y = 0.05;  // 最小値
+        mesh.scale.y = 0.05;  // 話していない時は最小の高さに
       }
     });
 
@@ -166,13 +164,13 @@ function SimpleAvatar({ isSpeaking }) {
     circuitRefs.current.forEach((mesh, index) => {
       if (!mesh || !mesh.material) return;
 
-      if (isAnimatingRef.current) {
+      if (isSpeaking) {  // isAnimatingRef.currentの条件を削除
         const opacity = 0.3 + 
           Math.sin(timeRef.current * 2 + index) * 0.2 +
           Math.sin(timeRef.current + index * 0.5) * 0.1;
         mesh.material.opacity = opacity;
       } else {
-        mesh.material.opacity = 0.1;
+        mesh.material.opacity = 0.1;  // 話していない時は低い不透明度に
       }
     });
   });
@@ -332,7 +330,24 @@ const TalkPageWebRTC = () => {
       // -- Remote audio (AI音声) 用
       audioRef.current = document.createElement("audio");
       audioRef.current.autoplay = true;
-      audioRef.current.controls = true; // ユーザーがオーディオをコントロールできるようにする
+      audioRef.current.controls = true;
+      
+      // 音声イベントのハンドラを追加
+      audioRef.current.onplaying = () => {
+        console.log("AI audio started playing");
+        setIsAISpeaking(true);
+      };
+      
+      audioRef.current.onpause = () => {
+        console.log("AI audio paused");
+        setIsAISpeaking(false);
+      };
+      
+      audioRef.current.onended = () => {
+        console.log("AI audio ended");
+        setIsAISpeaking(false);
+      };
+
       pc.ontrack = (e) => {
         console.log("Got remote track:", e);
         audioRef.current.srcObject = e.streams[0];
@@ -487,24 +502,22 @@ const TalkPageWebRTC = () => {
         }
       }
 
-      // AIの音声開始イベントの判定
+      // AIの音声開始イベントの処理を修正
       if (evt.type === "output_audio_buffer.audio_started") {
+        console.log('[Audio] Starting AI speech');
         // ユーザーが話していない場合のみAIの発話を開始
         if (!isUserSpeaking) {
-          console.log('[Audio] Starting AI speech');
           setIsAISpeaking(true);
-          // 新しい音声が始まるときは必ず再生を開始
-          if (audioRef.current) {
-            audioRef.current.play().catch(e => {
-              console.warn('Failed to start audio:', e);
-            });
-          }
         }
       }
-      // AIの音声終了イベントの判定
+      // AIの音声終了イベントの処理を修正
       else if (evt.type === "output_audio_buffer.audio_stopped") {
         console.log('[Audio] Ending AI speech');
         setIsAISpeaking(false);
+        // 音声が終了したら確実にアニメーションを停止
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
       }
 
       // 以下は音声状態に影響を与えないイベント
@@ -563,7 +576,7 @@ const TalkPageWebRTC = () => {
       }
       // 他の必要なイベントタイプをここに追加
     },
-    [isAISpeaking, isUserSpeaking]
+    [isUserSpeaking]  // isAISpeakingの代わりにisUserSpeakingを依存配列に追加
   );
 
   // ユーザーの発話状態を監視
